@@ -4,3 +4,4 @@ numpy
 requests
 plotly
 ccxt
+streamlit-autorefresh

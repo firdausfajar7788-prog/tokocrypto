@@ -25,7 +25,7 @@ symbols = [x.strip().upper() for x in coin_input.split(",")]
 
 timeframe = st.sidebar.selectbox(
     "Timeframe",
-    ["1m","5m","15m","1h"]
+    ["1m","5m","15m","1h","4h","1d"]
 )
 
 limit = st.sidebar.slider(

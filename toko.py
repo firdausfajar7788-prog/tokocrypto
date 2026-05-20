@@ -56,8 +56,8 @@ st_autorefresh(interval=refresh * 1000, key="refresh")
 @st.cache_data(ttl=5)
 def get_data(symbol, timeframe, limit):
 
-    url = f"https://www.tokocrypto.site/api/v3/klines?symbol={symbol}&interval={timeframe}&limit={limit}"
-
+    # url = f"https://www.tokocrypto.site/api/v3/klines?symbol={symbol}&interval={timeframe}&limit={limit}"
+    url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={timeframe}&limit={limit}"
     try:
         res = requests.get(url, timeout=5)
         data = res.json()

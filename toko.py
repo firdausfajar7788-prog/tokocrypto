@@ -8,15 +8,15 @@ from plotly.subplots import make_subplots
 from streamlit_autorefresh import st_autorefresh
 
 # =========================================================
-# PAGE CONFIG
+# CONFIG
 # =========================================================
 st.set_page_config(
-    page_title="🚀 Crypto Smart AI ULTRA++",
+    page_title="🚀 Crypto Smart AI ULTRA",
     layout="wide"
 )
 
 # =========================================================
-# CSS
+# CUSTOM CSS
 # =========================================================
 st.markdown("""
 <style>
@@ -40,7 +40,7 @@ html, body, [class*="css"] {
 # =========================================================
 # TITLE
 # =========================================================
-st.title("🚀 Crypto Smart AI ULTRA++")
+st.title("🚀 Crypto Smart AI ULTRA")
 
 st.caption(
     "Realtime AI Trading Dashboard"
@@ -49,7 +49,7 @@ st.caption(
 # =========================================================
 # SIDEBAR
 # =========================================================
-st.sidebar.header("⚙️ Settings")
+st.sidebar.header("⚙️ AI Settings")
 
 refresh = st.sidebar.slider(
     "Auto Refresh (detik)",
@@ -65,7 +65,18 @@ coin_input = st.sidebar.text_input(
 
 timeframe = st.sidebar.selectbox(
     "Timeframe",
-    ["1m", "5m", "15m", "1h"],
+    [
+    "1m",
+    "3m",
+    "5m",
+    "15m",
+    "30m",
+    "1h",
+    "4h",
+    "1d",
+    "1wk",
+    "1mo"
+],
     index=2
 )
 
@@ -104,61 +115,30 @@ usd_to_idr = get_usd_idr()
 # TIMEFRAME MAP
 # =========================================================
 yf_map = {
+
     "1m": "1m",
+    "3m": "5m",
     "5m": "5m",
+
     "15m": "15m",
-    "1h": "1h"
+    "30m": "30m",
+
+    "1h": "1h",
+    "4h": "1h",
+
+    "1d": "1d",
+    "1wk": "1wk",
+    "1mo": "1mo"
 }
 
 # =========================================================
-# SYMBOL FORMAT
+# SYMBOL
 # =========================================================
 def smart_symbol(symbol):
 
     symbol = symbol.upper().replace(" ", "")
 
     return f"{symbol}-USD"
-
-# =========================================================
-# GET MARKET DATA
-# =========================================================
-@st.cache_data(ttl=60)
-def get_market_data(symbol):
-
-    try:
-
-        coin = symbol.split("-")[0].lower()
-
-        url = (
-            "https://api.coingecko.com/api/v3/"
-            f"coins/{coin}"
-        )
-
-        data = requests.get(url).json()
-
-        marketcap = data["market_data"]["market_cap"]["usd"]
-
-        change24 = data["market_data"]["price_change_percentage_24h"]
-
-        change7d = data["market_data"]["price_change_percentage_7d"]
-
-        volume = data["market_data"]["total_volume"]["usd"]
-
-        return (
-            marketcap,
-            change24,
-            change7d,
-            volume
-        )
-
-    except:
-
-        return (
-            0,
-            0,
-            0,
-            0
-        )
 
 # =========================================================
 # GET DATA
@@ -170,9 +150,37 @@ def get_data(symbol, timeframe, limit):
 
         interval = yf_map[timeframe]
 
+        # =================================================
+        # AUTO PERIOD
+        # =================================================
+# =================================================
+# AUTO PERIOD
+# =================================================
+        period_map = {
+
+            "1m": "1d",
+            "3m": "2d",
+            "5m": "5d",
+
+            "15m": "15d",
+            "30m": "30d",
+
+            "1h": "60d",
+            "4h": "180d",
+
+            "1d": "1y",
+            "1wk": "5y",
+            "1mo": "10y"
+        }
+
+        period = period_map[timeframe]
+
+        # =================================================
+        # DOWNLOAD
+        # =================================================
         df = yf.download(
             tickers=symbol,
-            period="2d",
+            period=period,
             interval=interval,
             progress=False,
             auto_adjust=False
@@ -241,52 +249,39 @@ def RSI(df, period=14):
     return rsi
 
 # =========================================================
-# MACD
-# =========================================================
-def MACD(df):
-
-    ema12 = df["Close"].ewm(
-        span=12,
-        adjust=False
-    ).mean()
-
-    ema26 = df["Close"].ewm(
-        span=26,
-        adjust=False
-    ).mean()
-
-    macd = ema12 - ema26
-
-    signal = macd.ewm(
-        span=9,
-        adjust=False
-    ).mean()
-
-    hist = macd - signal
-
-    return macd, signal, hist
-
-# =========================================================
 # SUPPORT RESISTANCE
 # =========================================================
 def support_resistance(df):
 
-    s1 = float(df["Low"].tail(10).min())
-    s2 = float(df["Low"].tail(20).min())
-    s3 = float(df["Low"].tail(50).min())
+    support1 = float(
+        df["Low"].tail(20).min()
+    )
 
-    r1 = float(df["High"].tail(10).max())
-    r2 = float(df["High"].tail(20).max())
-    r3 = float(df["High"].tail(50).max())
+    support2 = float(
+        df["Low"].tail(50).min()
+    )
+
+    resistance1 = float(
+        df["High"].tail(20).max()
+    )
+
+    resistance2 = float(
+        df["High"].tail(50).max()
+    )
 
     return (
-        s1,
-        s2,
-        s3,
-        r1,
-        r2,
-        r3
+        support1,
+        support2,
+        resistance1,
+        resistance2
     )
+
+# =========================================================
+# BREAKOUT DETECTION
+# =========================================================
+def breakout(price, resistance):
+
+    return price > resistance
 
 # =========================================================
 # AI SIGNAL
@@ -336,13 +331,6 @@ def ai_signal(price, ema20, ema50, rsi):
         )
 
 # =========================================================
-# BREAKOUT
-# =========================================================
-def breakout(price, resistance):
-
-    return price > resistance
-
-# =========================================================
 # COINS
 # =========================================================
 coins = [
@@ -360,7 +348,7 @@ for symbol in coins:
     st.subheader(f"🤖 {symbol}")
 
     # =====================================================
-    # GET PRICE DATA
+    # GET DATA
     # =====================================================
     df = get_data(
         symbol,
@@ -377,12 +365,7 @@ for symbol in coins:
         continue
 
     # =====================================================
-    # MARKET DATA
-    # =====================================================
-    marketcap, change24, change7d, volume_usd = get_market_data(symbol)
-
-    # =====================================================
-    # INDICATORS
+    # INDICATOR
     # =====================================================
     df["EMA20"] = EMA(df, 20)
 
@@ -390,35 +373,42 @@ for symbol in coins:
 
     df["RSI"] = RSI(df)
 
-    df["MACD"], df["MACD_SIGNAL"], df["MACD_HIST"] = MACD(df)
-
     df = df.dropna()
 
     # =====================================================
     # LAST VALUE
     # =====================================================
-    price_usd = float(df["Close"].iloc[-1])
+    price_usd = float(
+        df["Close"].iloc[-1]
+    )
 
     price = price_usd * usd_to_idr
 
-    ema20 = float(df["EMA20"].iloc[-1]) * usd_to_idr
+    ema20 = float(
+        df["EMA20"].iloc[-1]
+    ) * usd_to_idr
 
-    ema50 = float(df["EMA50"].iloc[-1]) * usd_to_idr
+    ema50 = float(
+        df["EMA50"].iloc[-1]
+    ) * usd_to_idr
 
-    rsi = float(df["RSI"].iloc[-1])
+    rsi = float(
+        df["RSI"].iloc[-1]
+    )
+
+    volume = float(
+        df["Volume"].iloc[-1]
+    )
 
     # =====================================================
     # SUPPORT RESISTANCE
     # =====================================================
-    s1, s2, s3, r1, r2, r3 = support_resistance(df)
+    s1, s2, r1, r2 = support_resistance(df)
 
     s1 *= usd_to_idr
     s2 *= usd_to_idr
-    s3 *= usd_to_idr
-
     r1 *= usd_to_idr
     r2 *= usd_to_idr
-    r3 *= usd_to_idr
 
     # =====================================================
     # SIGNAL
@@ -441,7 +431,7 @@ for symbol in coins:
     # =====================================================
     # METRICS
     # =====================================================
-    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+    c1, c2, c3, c4, c5 = st.columns(5)
 
     c1.metric(
         "💰 Price",
@@ -454,39 +444,29 @@ for symbol in coins:
     )
 
     c3.metric(
-        "📈 24H",
-        f"{change24:.2f}%"
+        "📦 Volume",
+        f"{volume:,.0f}"
     )
 
     c4.metric(
-        "📅 7D",
-        f"{change7d:.2f}%"
+        "🤖 Signal",
+        signal
     )
 
     c5.metric(
-        "🏦 Market Cap",
-        f"${marketcap:,.0f}"
-    )
-
-    c6.metric(
-        "📦 Volume",
-        f"${volume_usd:,.0f}"
-    )
-
-    c7.metric(
-        "🤖 Signal",
-        signal
+        "⚡ Confidence",
+        f"{confidence}%"
     )
 
     # =====================================================
     # CHART
     # =====================================================
     fig = make_subplots(
-        rows=3,
+        rows=2,
         cols=1,
         shared_xaxes=True,
         vertical_spacing=0.03,
-        row_heights=[0.65, 0.2, 0.15]
+        row_heights=[0.8, 0.2]
     )
 
     # =====================================================
@@ -560,7 +540,7 @@ for symbol in coins:
             x=df["Time"],
             y=df["Volume"],
             marker_color=colors,
-            opacity=0.4,
+            opacity=0.35,
             name="Volume"
         ),
         row=2,
@@ -568,86 +548,73 @@ for symbol in coins:
     )
 
     # =====================================================
-    # MACD
-    # =====================================================
-    fig.add_trace(
-        go.Scatter(
-            x=df["Time"],
-            y=df["MACD"],
-            line=dict(
-                color="#00a2ff",
-                width=2
-            ),
-            name="MACD"
-        ),
-        row=3,
-        col=1
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=df["Time"],
-            y=df["MACD_SIGNAL"],
-            line=dict(
-                color="#ff00ff",
-                width=2
-            ),
-            name="Signal"
-        ),
-        row=3,
-        col=1
-    )
-
-    fig.add_trace(
-        go.Bar(
-            x=df["Time"],
-            y=df["MACD_HIST"],
-            marker_color=colors,
-            opacity=0.5,
-            name="Histogram"
-        ),
-        row=3,
-        col=1
-    )
-
-    # =====================================================
     # SUPPORT RESISTANCE
     # =====================================================
-    support_lines = [
-        (s1, "#00ff88", "S1"),
-        (s2, "#00cc66", "S2"),
-        (s3, "#007744", "S3")
-    ]
+    fig.add_hline(
+        y=s1,
+        line_dash="dot",
+        line_color="#00ff88",
+        line_width=2,
+        annotation_text=f"S1 Rp {s1:,.0f}",
+        row=1,
+        col=1
+    )
 
-    resistance_lines = [
-        (r1, "#ff3b5c", "R1"),
-        (r2, "#ff0055", "R2"),
-        (r3, "#990022", "R3")
-    ]
+    fig.add_hline(
+        y=s2,
+        line_dash="dash",
+        line_color="green",
+        line_width=1,
+        annotation_text=f"S2 Rp {s2:,.0f}",
+        row=1,
+        col=1
+    )
 
-    for value, color, name in support_lines:
+    fig.add_hline(
+        y=r1,
+        line_dash="dot",
+        line_color="#ff3b5c",
+        line_width=2,
+        annotation_text=f"R1 Rp {r1:,.0f}",
+        row=1,
+        col=1
+    )
 
-        fig.add_hline(
-            y=value,
-            line_dash="dot",
-            line_color=color,
-            line_width=1.5,
-            annotation_text=f"{name}",
-            row=1,
-            col=1
-        )
+    fig.add_hline(
+        y=r2,
+        line_dash="dash",
+        line_color="red",
+        line_width=1,
+        annotation_text=f"R2 Rp {r2:,.0f}",
+        row=1,
+        col=1
+    )
 
-    for value, color, name in resistance_lines:
+    # =====================================================
+    # BUY ZONE
+    # =====================================================
+    fig.add_hrect(
+        y0=s1 * 0.995,
+        y1=s1 * 1.005,
+        fillcolor="green",
+        opacity=0.06,
+        line_width=0,
+        row=1,
+        col=1
+    )
 
-        fig.add_hline(
-            y=value,
-            line_dash="dot",
-            line_color=color,
-            line_width=1.5,
-            annotation_text=f"{name}",
-            row=1,
-            col=1
-        )
+    # =====================================================
+    # BREAKOUT ZONE
+    # =====================================================
+    fig.add_hrect(
+        y0=r1 * 0.995,
+        y1=r1 * 1.005,
+        fillcolor="red",
+        opacity=0.06,
+        line_width=0,
+        row=1,
+        col=1
+    )
 
     # =====================================================
     # ENTRY MARKER
@@ -659,7 +626,7 @@ for symbol in coins:
             mode="markers+text",
             marker=dict(
                 color="cyan",
-                size=12
+                size=14
             ),
             text=["ENTRY"],
             textposition="top center",
@@ -674,19 +641,21 @@ for symbol in coins:
     # =====================================================
     fig.update_layout(
         template="plotly_dark",
-        height=950,
+        height=900,
         title=f"{symbol} AI Smart Trading Chart",
         hovermode="x unified",
         xaxis_rangeslider_visible=False,
-        paper_bgcolor="#050816",
-        plot_bgcolor="#050816",
-        font=dict(color="white"),
         legend=dict(
             orientation="h",
             yanchor="bottom",
             y=1.02,
             xanchor="right",
             x=1
+        ),
+        paper_bgcolor="#050816",
+        plot_bgcolor="#050816",
+        font=dict(
+            color="white"
         )
     )
 
@@ -715,19 +684,19 @@ for symbol in coins:
     if signal == "🚀 STRONG BUY":
 
         st.success(
-            f"🔥 STRONG BUY | Confidence {confidence}%"
+            "🔥 STRONG BUY SIGNAL"
         )
 
     elif signal == "🟢 BUY":
 
         st.info(
-            f"🟢 BUY MOMENTUM | Confidence {confidence}%"
+            "🟢 BUY MOMENTUM"
         )
 
     elif signal == "🔴 SELL":
 
         st.error(
-            f"⚠️ SELL SIGNAL | Confidence {confidence}%"
+            "⚠️ SELL SIGNAL"
         )
 
     else:
@@ -740,5 +709,5 @@ for symbol in coins:
 # FOOTER
 # =========================================================
 st.caption(
-    f"🚀 Crypto Smart AI ULTRA++ | USD/IDR : Rp {usd_to_idr:,.0f}"
+    f"🚀 Crypto Smart AI ULTRA | USD/IDR : Rp {usd_to_idr:,.0f}"
 )

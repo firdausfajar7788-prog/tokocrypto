@@ -192,9 +192,6 @@ def get_data(symbol, timeframe, limit):
         # =================================================
         # AUTO PERIOD
         # =================================================
-# =================================================
-# AUTO PERIOD
-# =================================================
         period_map = {
 
             "1m": "1d",
@@ -226,33 +223,77 @@ def get_data(symbol, timeframe, limit):
         )
 
         if df.empty:
+
             return None
 
+        # =================================================
         # FIX MULTI INDEX
+        # =================================================
         if isinstance(df.columns, pd.MultiIndex):
 
-            df.columns = df.columns.get_level_values(0)
+            df.columns = (
+                df.columns.get_level_values(0)
+            )
 
+        # =================================================
+        # RESET INDEX
+        # =================================================
         df.reset_index(inplace=True)
 
+        # =================================================
         # FIX TIME COLUMN
+        # =================================================
         if "Datetime" in df.columns:
 
             df.rename(
-                columns={"Datetime": "Time"},
+                columns={
+                    "Datetime": "Time"
+                },
                 inplace=True
             )
 
         elif "Date" in df.columns:
 
             df.rename(
-                columns={"Date": "Time"},
+                columns={
+                    "Date": "Time"
+                },
                 inplace=True
             )
 
+        # =================================================
+        # FIX TIMEZONE WIB
+        # =================================================
+        df["Time"] = pd.to_datetime(
+            df["Time"]
+        )
+
+        try:
+
+            # kalau timezone-aware
+            df["Time"] = (
+                df["Time"]
+                .dt.tz_convert("Asia/Jakarta")
+            )
+
+        except:
+
+            # kalau timezone-naive
+            df["Time"] = (
+                df["Time"]
+                + pd.Timedelta(hours=7)
+            )
+
+        # =================================================
+        # RETURN
+        # =================================================
         return df.tail(limit)
 
-    except:
+    except Exception as e:
+
+        st.error(
+            f"{symbol} ERROR : {e}"
+        )
 
         return None
 

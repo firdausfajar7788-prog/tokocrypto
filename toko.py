@@ -26,12 +26,51 @@ html, body, [class*="css"] {
     color: white;
 }
 
-.stMetric {
-    background: linear-gradient(145deg,#0f172a,#111827);
-    padding: 15px;
-    border-radius: 15px;
-    border: 1px solid #1f2937;
-    box-shadow: 0px 0px 20px rgba(0,255,255,0.05);
+/* METRIC CARD */
+[data-testid="stMetric"] {
+
+    background: linear-gradient(
+        145deg,
+        #0b1220,
+        #111827
+    );
+
+    border: 1px solid #1e293b;
+
+    padding: 10px;
+
+    border-radius: 14px;
+
+    backdrop-filter: blur(10px);
+
+    box-shadow:
+        0 0 10px rgba(0,255,255,0.05);
+
+    text-align: center;
+
+    min-height: 80px;
+}
+
+/* LABEL */
+[data-testid="stMetricLabel"] {
+
+    font-size: 13px;
+
+    color: #94a3b8;
+}
+
+/* VALUE */
+[data-testid="stMetricValue"] {
+
+    font-size: 22px;
+
+    font-weight: bold;
+}
+
+/* DELTA */
+[data-testid="stMetricDelta"] {
+
+    font-size: 12px;
 }
 
 </style>

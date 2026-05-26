@@ -238,28 +238,19 @@ def get_data(symbol, timeframe, limit):
         # =================================================
         # RESET INDEX
         # =================================================
-        df.reset_index(inplace=True)
+        df = df.reset_index()
 
         # =================================================
-        # FIX TIME COLUMN
+        # FORCE TIME COLUMN
         # =================================================
-        if "Datetime" in df.columns:
+        first_col = df.columns[0]
 
-            df.rename(
-                columns={
-                    "Datetime": "Time"
-                },
-                inplace=True
-            )
-
-        elif "Date" in df.columns:
-
-            df.rename(
-                columns={
-                    "Date": "Time"
-                },
-                inplace=True
-            )
+        df.rename(
+            columns={
+                first_col: "Time"
+            },
+            inplace=True
+        )
 
         # =================================================
         # FIX TIMEZONE WIB

@@ -92,6 +92,15 @@ coin_input = st.sidebar.text_input(
     "Multi Coin",
     "BTC,ETH,SOL"
 )
+currency_mode = st.sidebar.selectbox(
+
+    "💱 Currency",
+
+    [
+        "IDR",
+        "USD"
+    ]
+)
 
 timeframe = st.sidebar.selectbox(
     "Timeframe",
@@ -145,6 +154,18 @@ def get_usd_idr():
         return 16000
 
 usd_to_idr = get_usd_idr()
+# =========================================================
+# CURRENCY MULTIPLIER
+# =========================================================
+if currency_mode == "IDR":
+
+    currency_rate = usd_to_idr
+    currency_symbol = "Rp"
+
+else:
+
+    currency_rate = 1
+    currency_symbol = "$"
 
 # =========================================================
 # TIMEFRAME MAP
@@ -507,17 +528,17 @@ for symbol in coins:
     # =====================================================
     price = (
         float(df["Close"].iloc[-1])
-        * usd_to_idr
+        * currency_rate
     )
 
     ema20 = (
         float(df["EMA20"].iloc[-1])
-        * usd_to_idr
+        * currency_rate
     )
 
     ema50 = (
         float(df["EMA50"].iloc[-1])
-        * usd_to_idr
+        * currency_rate
     )
 
     rsi = float(
@@ -535,11 +556,11 @@ for symbol in coins:
         support_resistance(df)
     )
 
-    s1 *= usd_to_idr
-    s2 *= usd_to_idr
+    s1 *= currency_rate
+    s2 *= currency_rate
 
-    r1 *= usd_to_idr
-    r2 *= usd_to_idr
+    r1 *= currency_rate
+    r2 *= currency_rate
 
     # =====================================================
     # SIGNAL
@@ -559,7 +580,7 @@ for symbol in coins:
 
     c1.metric(
         "💰 Price",
-        f"Rp {price:,.0f}"
+        f"{currency_symbol} {price:,.2f}"
     )
 
     c2.metric(
@@ -606,10 +627,10 @@ for symbol in coins:
 
             x=df["Time"],
 
-            open=df["Open"] * usd_to_idr,
-            high=df["High"] * usd_to_idr,
-            low=df["Low"] * usd_to_idr,
-            close=df["Close"] * usd_to_idr,
+            open=df["Open"] * currency_rate,
+            high=df["High"] * currency_rate,
+            low=df["Low"] * currency_rate,
+            close=df["Close"] * currency_rate,
 
             increasing_line_color="#00ff88",
             decreasing_line_color="#ff3b5c",
@@ -630,7 +651,7 @@ for symbol in coins:
 
             x=df["Time"],
 
-            y=df["EMA20"] * usd_to_idr,
+            y=df["EMA20"] * currency_rate,
 
             line=dict(
                 color="#00a2ff",
@@ -653,7 +674,7 @@ for symbol in coins:
 
             x=df["Time"],
 
-            y=df["EMA50"] * usd_to_idr,
+            y=df["EMA50"] * currency_rate,
 
             line=dict(
                 color="#ffaa00",
@@ -678,7 +699,7 @@ for symbol in coins:
 
         line_color="#00ff88",
 
-        annotation_text=f"S1 Rp {s1:,.0f}",
+        annotation_text=f"S1 {currency_symbol} {s1:,.2f}",
 
         row=1,
         col=1
@@ -996,5 +1017,5 @@ for symbol in coins:
 # FOOTER
 # =========================================================
 st.caption(
-    f"🚀 Crypto Smart AI ULTRA++ | USD/IDR : Rp {usd_to_idr:,.0f}"
+    f"🚀 Crypto Smart AI ULTRA++ | Currency Mode : {currency_mode}"
 )

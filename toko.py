@@ -26,7 +26,7 @@ html, body, [class*="css"] {
     color: white;
 }
 
-/* METRIC CARD */
+/* CARD */
 [data-testid="stMetric"] {
 
     background: linear-gradient(
@@ -41,21 +41,16 @@ html, body, [class*="css"] {
 
     border-radius: 14px;
 
-    backdrop-filter: blur(10px);
-
     box-shadow:
         0 0 15px rgba(0,255,255,0.08);
 
     text-align: center;
-
-    min-height: 80px;
 }
 
 /* LABEL */
 [data-testid="stMetricLabel"] {
 
     font-size: 13px;
-
     color: #94a3b8;
 }
 
@@ -63,7 +58,6 @@ html, body, [class*="css"] {
 [data-testid="stMetricValue"] {
 
     font-size: 22px;
-
     font-weight: bold;
 }
 
@@ -82,7 +76,7 @@ st.caption("Realtime AI Trading Dashboard")
 st.sidebar.header("⚙️ AI Settings")
 
 refresh = st.sidebar.slider(
-    "Auto Refresh (detik)",
+    "Refresh (detik)",
     2,
     60,
     5
@@ -92,13 +86,12 @@ coin_input = st.sidebar.text_input(
     "Multi Coin",
     "BTC,ETH,SOL"
 )
+
 currency_mode = st.sidebar.selectbox(
-
     "💱 Currency",
-
     [
-        "IDR",
-        "USD"
+        "USD",
+        "IDR"
     ]
 )
 
@@ -134,7 +127,7 @@ st_autorefresh(
 )
 
 # =========================================================
-# USD IDR
+# USD TO IDR
 # =========================================================
 @st.cache_data(ttl=3600)
 def get_usd_idr():
@@ -154,8 +147,9 @@ def get_usd_idr():
         return 16000
 
 usd_to_idr = get_usd_idr()
+
 # =========================================================
-# CURRENCY MULTIPLIER
+# CURRENCY
 # =========================================================
 if currency_mode == "IDR":
 
@@ -166,6 +160,41 @@ else:
 
     currency_rate = 1
     currency_symbol = "$"
+
+# =========================================================
+# FORMAT PRICE
+# =========================================================
+def format_price(value, symbol):
+
+    # =====================================================
+    # IDR
+    # =====================================================
+    if symbol == "Rp":
+
+        return f"Rp {value:,.0f}"
+
+    # =====================================================
+    # USD
+    # =====================================================
+    if value >= 1000:
+
+        return f"$ {value:,.2f}"
+
+    elif value >= 100:
+
+        return f"$ {value:,.3f}"
+
+    elif value >= 1:
+
+        return f"$ {value:,.4f}"
+
+    elif value >= 0.01:
+
+        return f"$ {value:,.6f}"
+
+    else:
+
+        return f"$ {value:,.8f}"
 
 # =========================================================
 # TIMEFRAME MAP
@@ -272,7 +301,9 @@ def get_data(symbol, timeframe, limit):
 
             df["Time"] = (
                 df["Time"]
-                .dt.tz_convert("Asia/Jakarta")
+                .dt.tz_convert(
+                    "Asia/Jakarta"
+                )
             )
 
         except:
@@ -494,7 +525,7 @@ for symbol in coins:
         continue
 
     # =====================================================
-    # INDICATOR
+    # INDICATORS
     # =====================================================
     df["EMA20"] = EMA(df, 20)
 
@@ -580,7 +611,10 @@ for symbol in coins:
 
     c1.metric(
         "💰 Price",
-        f"{currency_symbol} {price:,.2f}"
+        format_price(
+            price,
+            currency_symbol
+        )
     )
 
     c2.metric(
@@ -699,7 +733,7 @@ for symbol in coins:
 
         line_color="#00ff88",
 
-        annotation_text=f"S1 {currency_symbol} {s1:,.2f}",
+        annotation_text=f"S1 {format_price(s1, currency_symbol)}",
 
         row=1,
         col=1
@@ -713,7 +747,7 @@ for symbol in coins:
 
         line_color="green",
 
-        annotation_text=f"S2 Rp {s2:,.0f}",
+        annotation_text=f"S2 {format_price(s2, currency_symbol)}",
 
         row=1,
         col=1
@@ -730,7 +764,7 @@ for symbol in coins:
 
         line_color="#ff3b5c",
 
-        annotation_text=f"R1 Rp {r1:,.0f}",
+        annotation_text=f"R1 {format_price(r1, currency_symbol)}",
 
         row=1,
         col=1
@@ -744,7 +778,7 @@ for symbol in coins:
 
         line_color="red",
 
-        annotation_text=f"R2 Rp {r2:,.0f}",
+        annotation_text=f"R2 {format_price(r2, currency_symbol)}",
 
         row=1,
         col=1

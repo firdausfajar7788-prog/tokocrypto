@@ -1,120 +1,356 @@
-import requests
+import streamlit as st
 import pandas as pd
-import numpy as np
+import plotly.graph_objects as go
+import yfinance as yf
+import requests
 
-BASE_URL = "https://fapi.binance.com"
+from plotly.subplots import make_subplots
+from streamlit_autorefresh import st_autorefresh
 
+# =========================================================
+# PAGE CONFIG
+# =========================================================
+st.set_page_config(
+    page_title="🚀 Crypto Smart AI ULTRA++",
+    layout="wide"
+)
 
-# =====================================================
-# TOP 20 FUTURES BY VOLUME
-# =====================================================
-def get_top20_futures():
+# =========================================================
+# CSS
+# =========================================================
+st.markdown("""
+<style>
 
-    url = f"{BASE_URL}/fapi/v1/ticker/24hr"
+html, body, [class*="css"] {
+    background-color: #050816;
+    color: white;
+}
 
-    data = requests.get(
-        url,
-        timeout=15
-    ).json()
+/* CARD */
+[data-testid="stMetric"] {
 
-    df = pd.DataFrame(data)
+    background: linear-gradient(
+        145deg,
+        #0b1220,
+        #111827
+    );
 
-    df = df[
-        df["symbol"].str.endswith("USDT")
+    border: 1px solid #1e293b;
+
+    padding: 10px;
+
+    border-radius: 14px;
+
+    box-shadow:
+        0 0 15px rgba(0,255,255,0.08);
+
+    text-align: center;
+}
+
+/* LABEL */
+[data-testid="stMetricLabel"] {
+
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+/* VALUE */
+[data-testid="stMetricValue"] {
+
+    font-size: 22px;
+    font-weight: bold;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# =========================================================
+# TITLE
+# =========================================================
+st.title("🚀 Crypto Smart AI ULTRA++")
+st.caption("Realtime AI Trading Dashboard")
+
+# =========================================================
+# SIDEBAR
+# =========================================================
+st.sidebar.header("⚙️ AI Settings")
+
+refresh = st.sidebar.slider(
+    "Refresh (detik)",
+    2,
+    60,
+    5
+)
+
+coin_input = st.sidebar.text_input(
+    "Multi Coin",
+    "BTC,ETH,SOL"
+)
+
+currency_mode = st.sidebar.selectbox(
+    "💱 Currency",
+    [
+        "USD",
+        "IDR"
     ]
+)
 
-    blacklist = [
-        "USDCUSDT",
-        "BUSDUSDT",
-        "TUSDUSDT"
-    ]
+timeframe = st.sidebar.selectbox(
+    "Timeframe",
+    [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "4h",
+        "1d",
+        "1wk",
+        "1mo"
+    ],
+    index=2
+)
 
-    df = df[
-        ~df["symbol"].isin(blacklist)
-    ]
+limit = st.sidebar.slider(
+    "Historical Candle",
+    50,
+    500,
+    120
+)
 
-    df["quoteVolume"] = pd.to_numeric(
-        df["quoteVolume"],
-        errors="coerce"
+# =========================================================
+# AUTO REFRESH
+# =========================================================
+st_autorefresh(
+    interval=refresh * 1000,
+    key="refresh"
+)
+
+# =========================================================
+# USD TO IDR
+# =========================================================
+@st.cache_data(ttl=3600)
+def get_usd_idr():
+
+    try:
+
+        url = "https://open.er-api.com/v6/latest/USD"
+
+        response = requests.get(url)
+
+        data = response.json()
+
+        return data["rates"]["IDR"]
+
+    except:
+
+        return 16000
+
+usd_to_idr = get_usd_idr()
+
+# =========================================================
+# CURRENCY
+# =========================================================
+if currency_mode == "IDR":
+
+    currency_rate = usd_to_idr
+    currency_symbol = "Rp"
+
+else:
+
+    currency_rate = 1
+    currency_symbol = "$"
+
+# =========================================================
+# FORMAT PRICE
+# =========================================================
+def format_price(value, symbol):
+
+    # =====================================================
+    # IDR
+    # =====================================================
+    if symbol == "Rp":
+
+        return f"Rp {value:,.0f}"
+
+    # =====================================================
+    # USD
+    # =====================================================
+    if value >= 1000:
+
+        return f"$ {value:,.2f}"
+
+    elif value >= 100:
+
+        return f"$ {value:,.3f}"
+
+    elif value >= 1:
+
+        return f"$ {value:,.4f}"
+
+    elif value >= 0.01:
+
+        return f"$ {value:,.6f}"
+
+    else:
+
+        return f"$ {value:,.8f}"
+
+# =========================================================
+# TIMEFRAME MAP
+# =========================================================
+yf_map = {
+
+    "1m": ("1m", "1d"),
+    "5m": ("5m", "5d"),
+
+    "15m": ("15m", "15d"),
+    "30m": ("30m", "30d"),
+
+    "1h": ("1h", "60d"),
+    "4h": ("1h", "180d"),
+
+    "1d": ("1d", "1y"),
+    "1wk": ("1wk", "5y"),
+    "1mo": ("1mo", "10y")
+}
+
+# =========================================================
+# SYMBOL FIX
+# =========================================================
+def smart_symbol(symbol):
+
+    symbol = (
+        symbol
+        .upper()
+        .replace(" ", "")
     )
 
-    df = df.sort_values(
-        "quoteVolume",
-        ascending=False
-    )
+    return f"{symbol}-USD"
 
-    return df.head(20)
+# =========================================================
+# GET DATA
+# =========================================================
+@st.cache_data(ttl=30)
+def get_data(symbol, timeframe, limit):
 
+    try:
 
-# =====================================================
-# KLINE
-# =====================================================
-def get_klines(
-    symbol,
-    interval="4h",
-    limit=300
-):
+        interval, period = yf_map[timeframe]
 
-    url = f"{BASE_URL}/fapi/v1/klines"
+        df = yf.download(
 
-    params = {
-        "symbol": symbol,
-        "interval": interval,
-        "limit": limit
-    }
+            tickers=symbol,
 
-    data = requests.get(
-        url,
-        params=params,
-        timeout=15
-    ).json()
+            interval=interval,
 
-    df = pd.DataFrame(
-        data,
-        columns=[
-            "OpenTime",
-            "Open",
-            "High",
-            "Low",
-            "Close",
-            "Volume",
-            "CloseTime",
-            "QuoteAssetVolume",
-            "Trades",
-            "TakerBase",
-            "TakerQuote",
-            "Ignore"
-        ]
-    )
+            period=period,
 
-    df["Time"] = pd.to_datetime(
-        df["OpenTime"],
-        unit="ms"
-    )
+            progress=False,
 
-    for col in [
-        "Open",
-        "High",
-        "Low",
-        "Close",
-        "Volume"
-    ]:
-
-        df[col] = pd.to_numeric(
-            df[col],
-            errors="coerce"
+            auto_adjust=False
         )
 
-    return df
+        if df.empty:
 
+            return None
 
-# =====================================================
+        # =================================================
+        # FIX MULTI INDEX
+        # =================================================
+        if isinstance(
+            df.columns,
+            pd.MultiIndex
+        ):
+
+            df.columns = (
+                df.columns
+                .get_level_values(0)
+            )
+
+        # =================================================
+        # RESET INDEX
+        # =================================================
+        df = df.reset_index()
+
+        # =================================================
+        # FORCE TIME COLUMN
+        # =================================================
+        first_col = df.columns[0]
+
+        df.rename(
+            columns={
+                first_col: "Time"
+            },
+            inplace=True
+        )
+
+        # =================================================
+        # DROP NA
+        # =================================================
+        df = df.dropna()
+
+        # =================================================
+        # TIME
+        # =================================================
+        df["Time"] = pd.to_datetime(
+            df["Time"]
+        )
+
+        try:
+
+            df["Time"] = (
+                df["Time"]
+                .dt.tz_convert(
+                    "Asia/Jakarta"
+                )
+            )
+
+        except:
+
+            df["Time"] = (
+                df["Time"]
+                + pd.Timedelta(hours=7)
+            )
+
+        # =================================================
+        # RESAMPLE 4H
+        # =================================================
+        if timeframe == "4h":
+
+            df = (
+                df
+                .set_index("Time")
+                .resample("4h")
+                .agg({
+
+                    "Open": "first",
+                    "High": "max",
+                    "Low": "min",
+                    "Close": "last",
+                    "Volume": "sum"
+                })
+                .dropna()
+                .reset_index()
+            )
+
+        return df.tail(limit)
+
+    except Exception as e:
+
+        st.error(
+            f"{symbol} ERROR : {e}"
+        )
+
+        return None
+
+# =========================================================
 # EMA
-# =====================================================
-def ema(series, period):
+# =========================================================
+def EMA(df, period):
 
     return (
-        series
+        df["Close"]
         .ewm(
             span=period,
             adjust=False
@@ -122,66 +358,221 @@ def ema(series, period):
         .mean()
     )
 
-
-# =====================================================
+# =========================================================
 # RSI
-# =====================================================
-def rsi(series, period=14):
+# =========================================================
+def RSI(df, period=14):
 
-    delta = series.diff()
+    delta = df["Close"].diff()
 
     gain = delta.clip(lower=0)
 
     loss = -delta.clip(upper=0)
 
-    avg_gain = gain.rolling(period).mean()
+    avg_gain = (
+        gain
+        .rolling(period)
+        .mean()
+    )
 
-    avg_loss = loss.rolling(period).mean()
+    avg_loss = (
+        loss
+        .rolling(period)
+        .mean()
+    )
 
     rs = avg_gain / avg_loss
 
     return 100 - (100 / (1 + rs))
 
+# =========================================================
+# MACD
+# =========================================================
+def MACD(df):
 
-# =====================================================
-# AI SCORE
-# =====================================================
-def ai_score(df):
+    ema12 = EMA(df, 12)
+    ema26 = EMA(df, 26)
 
-    df = df.copy()
+    macd = ema12 - ema26
 
-    df["EMA20"] = ema(
-        df["Close"],
-        20
+    signal = (
+        macd
+        .ewm(
+            span=9,
+            adjust=False
+        )
+        .mean()
     )
 
-    df["EMA50"] = ema(
-        df["Close"],
-        50
+    hist = macd - signal
+
+    return macd, signal, hist
+
+# =========================================================
+# SUPPORT RESISTANCE
+# =========================================================
+def support_resistance(df):
+
+    support1 = float(
+        df["Low"].tail(20).min()
     )
 
-    df["RSI"] = rsi(
-        df["Close"]
+    support2 = float(
+        df["Low"].tail(50).min()
     )
 
-    df = df.dropna()
-
-    if len(df) < 60:
-        return None
-
-    price = float(
-        df["Close"].iloc[-1]
+    resistance1 = float(
+        df["High"].tail(20).max()
     )
 
-    ema20 = float(
-        df["EMA20"].iloc[-1]
+    resistance2 = float(
+        df["High"].tail(50).max()
     )
 
-    ema50 = float(
-        df["EMA50"].iloc[-1]
+    return (
+        support1,
+        support2,
+        resistance1,
+        resistance2
     )
 
-    rsi_now = float(
+# =========================================================
+# AI SIGNAL
+# =========================================================
+def ai_signal(
+    price,
+    ema20,
+    ema50,
+    rsi
+):
+
+    score = 0
+
+    if price > ema20:
+        score += 25
+
+    if ema20 > ema50:
+        score += 25
+
+    if rsi > 55:
+        score += 25
+
+    if rsi > 65:
+        score += 25
+
+    if score >= 75:
+
+        return (
+            "🚀 STRONG BUY",
+            score
+        )
+
+    elif score >= 50:
+
+        return (
+            "🟢 BUY",
+            score
+        )
+
+    elif score <= 25:
+
+        return (
+            "🔴 SELL",
+            score
+        )
+
+    else:
+
+        return (
+            "📊 WAIT",
+            score
+        )
+
+# =========================================================
+# COINS
+# =========================================================
+coins = [
+
+    smart_symbol(x)
+
+    for x in coin_input.split(",")
+]
+
+# =========================================================
+# MAIN LOOP
+# =========================================================
+for symbol in coins:
+
+    st.divider()
+
+    st.subheader(f"🤖 {symbol}")
+
+    # =====================================================
+    # GET DATA
+    # =====================================================
+    df = get_data(
+        symbol,
+        timeframe,
+        limit
+    )
+
+    if df is None or df.empty:
+
+        st.warning(
+            f"{symbol} data tidak tersedia"
+        )
+
+        continue
+
+    # =====================================================
+    # INDICATORS
+    # =====================================================
+    df["EMA20"] = EMA(df, 20)
+
+    df["EMA50"] = EMA(df, 50)
+
+    df["RSI"] = RSI(df)
+
+    (
+        df["MACD"],
+        df["MACD_SIGNAL"],
+        df["MACD_HIST"]
+
+    ) = MACD(df)
+
+    df = (
+        df
+        .dropna()
+        .reset_index(drop=True)
+    )
+
+    if len(df) < 10:
+
+        st.warning(
+            f"{symbol} candle terlalu sedikit"
+        )
+
+        continue
+
+    # =====================================================
+    # LAST VALUE
+    # =====================================================
+    price = (
+        float(df["Close"].iloc[-1])
+        * currency_rate
+    )
+
+    ema20 = (
+        float(df["EMA20"].iloc[-1])
+        * currency_rate
+    )
+
+    ema50 = (
+        float(df["EMA50"].iloc[-1])
+        * currency_rate
+    )
+
+    rsi = float(
         df["RSI"].iloc[-1]
     )
 
@@ -189,61 +580,476 @@ def ai_score(df):
         df["Volume"].iloc[-1]
     )
 
-    avg_volume = float(
-        df["Volume"].tail(50).mean()
+    # =====================================================
+    # SUPPORT RESISTANCE
+    # =====================================================
+    s1, s2, r1, r2 = (
+        support_resistance(df)
     )
 
-    resistance = float(
-        df["High"].tail(20).max()
+    s1 *= currency_rate
+    s2 *= currency_rate
+
+    r1 *= currency_rate
+    r2 *= currency_rate
+
+    # =====================================================
+    # SIGNAL
+    # =====================================================
+    signal, confidence = ai_signal(
+
+        price,
+        ema20,
+        ema50,
+        rsi
     )
 
-    support = float(
-        df["Low"].tail(20).min()
+    # =====================================================
+    # METRICS
+    # =====================================================
+    c1, c2, c3, c4, c5 = st.columns(5)
+
+    c1.metric(
+        "💰 Price",
+        format_price(
+            price,
+            currency_symbol
+        )
     )
 
-    score = 0
+    c2.metric(
+        "📊 RSI",
+        f"{rsi:.2f}"
+    )
 
-    reasons = []
+    c3.metric(
+        "📦 Volume",
+        f"{volume:,.0f}"
+    )
 
-    if ema20 > ema50:
-        score += 25
-        reasons.append("EMA Bullish")
+    c4.metric(
+        "🤖 Signal",
+        signal
+    )
 
-    if price > ema20:
-        score += 20
-        reasons.append("Price > EMA20")
+    c5.metric(
+        "⚡ Confidence",
+        f"{confidence}%"
+    )
 
-    if 55 <= rsi_now <= 75:
-        score += 20
-        reasons.append("Healthy RSI")
+    # =====================================================
+    # CHART
+    # =====================================================
+    fig = make_subplots(
 
-    if volume > avg_volume * 1.5:
-        score += 20
-        reasons.append("Volume Spike")
+        rows=3,
+        cols=1,
 
-    if price >= resistance * 0.995:
-        score += 15
-        reasons.append("Near Breakout")
+        shared_xaxes=True,
 
-    if score >= 85:
-        signal = "STRONG BUY"
-    elif score >= 70:
-        signal = "BUY"
-    elif score >= 50:
-        signal = "WAIT"
+        vertical_spacing=0.03,
+
+        row_heights=[0.65, 0.2, 0.15]
+    )
+
+    # =====================================================
+    # CANDLE
+    # =====================================================
+    fig.add_trace(
+
+        go.Candlestick(
+
+            x=df["Time"],
+
+            open=df["Open"] * currency_rate,
+            high=df["High"] * currency_rate,
+            low=df["Low"] * currency_rate,
+            close=df["Close"] * currency_rate,
+
+            increasing_line_color="#00ff88",
+            decreasing_line_color="#ff3b5c",
+
+            name="Candlestick"
+        ),
+
+        row=1,
+        col=1
+    )
+
+    # =====================================================
+    # EMA20
+    # =====================================================
+    fig.add_trace(
+
+        go.Scatter(
+
+            x=df["Time"],
+
+            y=df["EMA20"] * currency_rate,
+
+            line=dict(
+                color="#00a2ff",
+                width=2
+            ),
+
+            name="EMA20"
+        ),
+
+        row=1,
+        col=1
+    )
+
+    # =====================================================
+    # EMA50
+    # =====================================================
+    fig.add_trace(
+
+        go.Scatter(
+
+            x=df["Time"],
+
+            y=df["EMA50"] * currency_rate,
+
+            line=dict(
+                color="#ffaa00",
+                width=2
+            ),
+
+            name="EMA50"
+        ),
+
+        row=1,
+        col=1
+    )
+
+    # =====================================================
+    # SUPPORT
+    # =====================================================
+    fig.add_hline(
+
+        y=s1,
+
+        line_dash="dot",
+
+        line_color="#00ff88",
+
+        annotation_text=f"S1 {format_price(s1, currency_symbol)}",
+
+        row=1,
+        col=1
+    )
+
+    fig.add_hline(
+
+        y=s2,
+
+        line_dash="dash",
+
+        line_color="green",
+
+        annotation_text=f"S2 {format_price(s2, currency_symbol)}",
+
+        row=1,
+        col=1
+    )
+
+    # =====================================================
+    # RESISTANCE
+    # =====================================================
+    fig.add_hline(
+
+        y=r1,
+
+        line_dash="dot",
+
+        line_color="#ff3b5c",
+
+        annotation_text=f"R1 {format_price(r1, currency_symbol)}",
+
+        row=1,
+        col=1
+    )
+
+    fig.add_hline(
+
+        y=r2,
+
+        line_dash="dash",
+
+        line_color="red",
+
+        annotation_text=f"R2 {format_price(r2, currency_symbol)}",
+
+        row=1,
+        col=1
+    )
+
+    # =====================================================
+    # BUY ZONE
+    # =====================================================
+    fig.add_hrect(
+
+        y0=s1 * 0.995,
+        y1=s1 * 1.005,
+
+        fillcolor="green",
+
+        opacity=0.06,
+
+        line_width=0,
+
+        row=1,
+        col=1
+    )
+
+    # =====================================================
+    # SELL ZONE
+    # =====================================================
+    fig.add_hrect(
+
+        y0=r1 * 0.995,
+        y1=r1 * 1.005,
+
+        fillcolor="red",
+
+        opacity=0.06,
+
+        line_width=0,
+
+        row=1,
+        col=1
+    )
+
+    # =====================================================
+    # COLORS
+    # =====================================================
+    colors = [
+
+        "#00ff88"
+        if c >= o
+        else "#ff3b5c"
+
+        for c, o in zip(
+            df["Close"],
+            df["Open"]
+        )
+    ]
+
+    # =====================================================
+    # VOLUME
+    # =====================================================
+    fig.add_trace(
+
+        go.Bar(
+
+            x=df["Time"],
+
+            y=df["Volume"],
+
+            marker_color=colors,
+
+            opacity=0.35,
+
+            name="Volume"
+        ),
+
+        row=2,
+        col=1
+    )
+
+    # =====================================================
+    # MACD
+    # =====================================================
+    fig.add_trace(
+
+        go.Scatter(
+
+            x=df["Time"],
+
+            y=df["MACD"],
+
+            line=dict(
+                color="#00a2ff",
+                width=2
+            ),
+
+            name="MACD"
+        ),
+
+        row=3,
+        col=1
+    )
+
+    fig.add_trace(
+
+        go.Scatter(
+
+            x=df["Time"],
+
+            y=df["MACD_SIGNAL"],
+
+            line=dict(
+                color="#ff00ff",
+                width=2
+            ),
+
+            name="Signal"
+        ),
+
+        row=3,
+        col=1
+    )
+
+    fig.add_trace(
+
+        go.Bar(
+
+            x=df["Time"],
+
+            y=df["MACD_HIST"],
+
+            marker_color=colors,
+
+            opacity=0.4,
+
+            name="Histogram"
+        ),
+
+        row=3,
+        col=1
+    )
+
+    # =====================================================
+    # ENTRY
+    # =====================================================
+    fig.add_trace(
+
+        go.Scatter(
+
+            x=[df["Time"].iloc[-1]],
+
+            y=[price],
+
+            mode="markers+text",
+
+            marker=dict(
+                color="cyan",
+                size=14
+            ),
+
+            text=["ENTRY"],
+
+            textposition="top center",
+
+            name="Entry"
+        ),
+
+        row=1,
+        col=1
+    )
+
+    # =====================================================
+    # LAYOUT
+    # =====================================================
+    fig.update_layout(
+
+        template="plotly_dark",
+
+        height=950,
+
+        title=f"{symbol} AI Smart Trading Chart",
+
+        hovermode="x",
+
+        dragmode="pan",
+
+        xaxis_rangeslider_visible=False,
+
+        paper_bgcolor="#050816",
+
+        plot_bgcolor="#050816",
+
+        font=dict(
+            color="white"
+        ),
+
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+
+    # =====================================================
+    # GRID
+    # =====================================================
+    fig.update_xaxes(
+        gridcolor="rgba(255,255,255,0.05)"
+    )
+
+    fig.update_yaxes(
+        gridcolor="rgba(255,255,255,0.05)"
+    )
+
+    # =====================================================
+    # FIX EMPTY SPACE
+    # =====================================================
+    fig.update_layout(
+
+        xaxis=dict(
+            fixedrange=False,
+            range=[
+                df["Time"].iloc[0],
+                df["Time"].iloc[-1]
+            ]
+        ),
+
+        xaxis2=dict(
+            matches='x'
+        ),
+
+        xaxis3=dict(
+            matches='x'
+        )
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
+
+    # =====================================================
+    # SIGNAL ALERT
+    # =====================================================
+    if signal == "🚀 STRONG BUY":
+
+        st.success(
+            f"🔥 STRONG BUY SIGNAL | {confidence}%"
+        )
+
+    elif signal == "🟢 BUY":
+
+        st.info(
+            f"🟢 BUY MOMENTUM | {confidence}%"
+        )
+
+    elif signal == "🔴 SELL":
+
+        st.error(
+            f"⚠️ SELL SIGNAL | {confidence}%"
+        )
+
     else:
-        signal = "AVOID"
 
-    return {
-        "score": score,
-        "signal": signal,
-        "price": price,
-        "support": support,
-        "resistance": resistance,
-        "entry_low": support * 1.01,
-        "entry_high": ema20,
-        "tp": resistance * 1.05,
-        "sl": support * 0.97,
-        "rsi": round(rsi_now, 2),
-        "reason": reasons
-    }
+        st.warning(
+            "📊 WAIT / SIDEWAYS"
+        )
+
+# =========================================================
+# FOOTER
+# =========================================================
+st.caption(
+    f"🚀 Crypto Smart AI ULTRA++ | Currency Mode : {currency_mode}"
+)

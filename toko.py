@@ -120,10 +120,7 @@ if st.sidebar.button("➕ Add Coin"):
             [new_coin.upper()]
         )
 
-        st.sidebar.success(
-            f"{new_coin} berhasil ditambah"
-        )
-
+        st.rerun()
 # =========================================================
 # TELEGRAM
 # =========================================================
@@ -598,7 +595,8 @@ coins = [
     smart_symbol(x)
     for x in symbols
 ]
-
+st.sidebar.write("DEBUG")
+st.sidebar.write(coins)
 st.sidebar.write("Watchlist Aktif")
 
 st.sidebar.write(symbols)

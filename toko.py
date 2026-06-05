@@ -6,6 +6,7 @@ import requests
 
 from plotly.subplots import make_subplots
 from streamlit_autorefresh import st_autorefresh
+from datetime import datetime
 
 # =========================================================
 # PAGE CONFIG
@@ -74,6 +75,38 @@ st.caption("Realtime AI Trading Dashboard")
 # SIDEBAR
 # =========================================================
 st.sidebar.header("⚙️ AI Settings")
+
+
+# =========================================================
+# TELEGRAM
+# =========================================================
+
+BOT_TOKEN = "8819178689:AAHBU4dTqoIUfGvkarKRZLI6wbfKJh6g0RU"
+CHAT_ID = "999556266"
+
+def send_telegram(message):
+
+    url = (
+        f"https://api.telegram.org/bot"
+        f"{BOT_TOKEN}/sendMessage"
+    )
+
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": message
+    }
+
+    try:
+
+        requests.post(
+            url,
+            json=payload,
+            timeout=10
+        )
+
+    except Exception as e:
+
+        print(e)
 
 refresh = st.sidebar.slider(
     "Refresh (detik)",
@@ -501,6 +534,14 @@ coins = [
 # =========================================================
 # MAIN LOOP
 # =========================================================
+
+# =========================================================
+# ALERT MEMORY
+# =========================================================
+
+if "last_alert" not in st.session_state:
+    st.session_state.last_alert = {}
+
 for symbol in coins:
 
     st.divider()
@@ -603,6 +644,47 @@ for symbol in coins:
         ema50,
         rsi
     )
+
+
+
+    # =====================================
+    # TELEGRAM ALERT
+    # =====================================
+
+    if symbol not in st.session_state.last_alert:
+
+        st.session_state.last_alert[symbol] = signal
+
+    else:
+
+        last_signal = (
+            st.session_state.last_alert[symbol]
+        )
+
+        if (
+            signal != last_signal
+            and signal != "📊 WAIT"
+        ):
+
+            send_telegram(
+                f"""
+    🚀 AI SIGNAL
+
+    Coin : {symbol}
+
+    Signal : {signal}
+
+    Price : {price:.6f}
+
+    RSI : {rsi:.2f}
+
+    Confidence : {confidence}%
+    """
+            )
+
+            st.session_state.last_alert[
+                symbol
+            ] = signal
 
     # =====================================================
     # METRICS
@@ -1020,9 +1102,43 @@ for symbol in coins:
         use_container_width=True
     )
 
-    # =====================================================
-    # SIGNAL ALERT
-    # =====================================================
+# =====================================================
+# SIGNAL ALERT
+# =====================================================
+
+    last_signal = (
+        st.session_state
+        .last_alert
+        .get(symbol)
+    )
+
+    if signal != last_signal:
+
+        send_telegram(
+    f"""
+    🤖 AI SIGNAL
+
+    Coin : {symbol}
+
+    Signal : {signal}
+
+    Price : {price:.6f}
+
+    RSI : {rsi:.2f}
+
+    Confidence : {confidence}%
+
+    Timeframe : {timeframe}
+
+    Time :
+    {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+    """
+        )
+
+        st.session_state.last_alert[
+            symbol
+        ] = signal
+
     if signal == "🚀 STRONG BUY":
 
         st.success(
@@ -1046,7 +1162,7 @@ for symbol in coins:
         st.warning(
             "📊 WAIT / SIDEWAYS"
         )
-
+ 
 # =========================================================
 # FOOTER
 # =========================================================

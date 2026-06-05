@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import yfinance as yf
 import requests
+import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -14,18 +15,14 @@ def load_sheet():
         "https://www.googleapis.com/auth/drive"
     ]
 
-    creds = ServiceAccountCredentials.from_json_keyfile_name(
-        "service_account.json",
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(
+        dict(st.secrets["gcp_service_account"]),
         scope
     )
 
     client = gspread.authorize(creds)
 
-    sheet = client.open(
-        "CryptoWatchlist"
-    ).sheet1
-
-    return sheet
+    return client.open("CryptoWatchlist").sheet1
 
 
 

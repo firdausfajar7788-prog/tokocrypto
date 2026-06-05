@@ -108,6 +108,18 @@ def send_telegram(message):
 
         print(e)
 
+if st.sidebar.button("🚀 Test Telegram"):
+
+    send_telegram(
+        "🚀 Telegram Connected!"
+    )
+
+    st.success(
+        "Pesan test terkirim"
+    ) 
+
+    
+
 refresh = st.sidebar.slider(
     "Refresh (detik)",
     2,
@@ -644,6 +656,41 @@ for symbol in coins:
         ema50,
         rsi
     )
+    if symbol not in st.session_state.last_alert:
+
+        st.session_state.last_alert[symbol] = signal
+
+    else:
+
+        last_signal = st.session_state.last_alert[symbol]
+
+        if (
+            signal != last_signal
+            and signal != "📊 WAIT"
+        ):
+
+            message = f"""
+    🤖 AI SIGNAL
+
+    Coin : {symbol}
+
+    Signal : {signal}
+
+    Price : {price:.6f}
+
+    RSI : {rsi:.2f}
+
+    Confidence : {confidence}%
+
+    Timeframe : {timeframe}
+
+    Time :
+    {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+    """
+
+            send_telegram(message)
+
+            st.session_state.last_alert[symbol] = signal
 
 
 
@@ -1102,67 +1149,7 @@ for symbol in coins:
         use_container_width=True
     )
 
-# =====================================================
-# SIGNAL ALERT
-# =====================================================
 
-    last_signal = (
-        st.session_state
-        .last_alert
-        .get(symbol)
-    )
-
-    if signal != last_signal:
-
-        send_telegram(
-    f"""
-    🤖 AI SIGNAL
-
-    Coin : {symbol}
-
-    Signal : {signal}
-
-    Price : {price:.6f}
-
-    RSI : {rsi:.2f}
-
-    Confidence : {confidence}%
-
-    Timeframe : {timeframe}
-
-    Time :
-    {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-    """
-        )
-
-        st.session_state.last_alert[
-            symbol
-        ] = signal
-
-    if signal == "🚀 STRONG BUY":
-
-        st.success(
-            f"🔥 STRONG BUY SIGNAL | {confidence}%"
-        )
-
-    elif signal == "🟢 BUY":
-
-        st.info(
-            f"🟢 BUY MOMENTUM | {confidence}%"
-        )
-
-    elif signal == "🔴 SELL":
-
-        st.error(
-            f"⚠️ SELL SIGNAL | {confidence}%"
-        )
-
-    else:
-
-        st.warning(
-            "📊 WAIT / SIDEWAYS"
-        )
- 
 # =========================================================
 # FOOTER
 # =========================================================

@@ -101,7 +101,10 @@ st.caption("Realtime AI Trading Dashboard")
 # SIDEBAR
 # =========================================================
 st.sidebar.header("⚙️ AI Settings")
-sheet = load_sheet()
+st.write("SECRET KEYS:")
+st.write(list(st.secrets.keys()))
+
+st.stop()
 
 st.sidebar.subheader("📋 Watchlist")
 

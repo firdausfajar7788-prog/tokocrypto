@@ -3,6 +3,35 @@ import pandas as pd
 import plotly.graph_objects as go
 import yfinance as yf
 import requests
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
+@st.cache_resource
+def load_sheet():
+
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive"
+    ]
+
+    creds = ServiceAccountCredentials.from_json_keyfile_name(
+        "service_account.json",
+        scope
+    )
+
+    client = gspread.authorize(creds)
+
+    sheet = client.open(
+        "CryptoWatchlist"
+    ).sheet1
+
+    return sheet
+
+
+
+
+
+
 
 from plotly.subplots import make_subplots
 from streamlit_autorefresh import st_autorefresh
@@ -75,7 +104,25 @@ st.caption("Realtime AI Trading Dashboard")
 # SIDEBAR
 # =========================================================
 st.sidebar.header("⚙️ AI Settings")
+sheet = load_sheet()
 
+st.sidebar.subheader("📋 Watchlist")
+
+new_coin = st.sidebar.text_input(
+    "Tambah Coin"
+)
+
+if st.sidebar.button("➕ Add Coin"):
+
+    if new_coin:
+
+        sheet.append_row(
+            [new_coin.upper()]
+        )
+
+        st.sidebar.success(
+            f"{new_coin} berhasil ditambah"
+        )
 
 # =========================================================
 # TELEGRAM
@@ -108,6 +155,12 @@ def send_telegram(message):
 
         print(e)
 
+
+
+
+
+
+
 if st.sidebar.button("🚀 Test Telegram"):
 
     send_telegram(
@@ -127,10 +180,7 @@ refresh = st.sidebar.slider(
     5
 )
 
-coin_input = st.sidebar.text_input(
-    "Multi Coin",
-    "BTC,ETH,SOL"
-)
+
 
 currency_mode = st.sidebar.selectbox(
     "💱 Currency",
@@ -536,13 +586,39 @@ def ai_signal(
 # =========================================================
 # COINS
 # =========================================================
-coins = [
+symbols = sheet.col_values(1)
 
-    smart_symbol(x)
-
-    for x in coin_input.split(",")
+symbols = [
+    x.strip()
+    for x in symbols
+    if x.strip()
 ]
 
+coins = [
+    smart_symbol(x)
+    for x in symbols
+]
+
+st.sidebar.write("Watchlist Aktif")
+
+st.sidebar.write(symbols)
+
+if len(symbols) > 0:
+
+    delete_coin = st.sidebar.selectbox(
+        "Delete Coin",
+        symbols
+    )
+
+    if st.sidebar.button("❌ Delete"):
+
+        cell = sheet.find(delete_coin)
+
+        sheet.delete_rows(cell.row)
+
+        st.rerun()
+
+ 
 # =========================================================
 # MAIN LOOP
 # =========================================================
@@ -694,44 +770,7 @@ for symbol in coins:
 
 
 
-    # =====================================
-    # TELEGRAM ALERT
-    # =====================================
-
-    if symbol not in st.session_state.last_alert:
-
-        st.session_state.last_alert[symbol] = signal
-
-    else:
-
-        last_signal = (
-            st.session_state.last_alert[symbol]
-        )
-
-        if (
-            signal != last_signal
-            and signal != "📊 WAIT"
-        ):
-
-            send_telegram(
-                f"""
-    🚀 AI SIGNAL
-
-    Coin : {symbol}
-
-    Signal : {signal}
-
-    Price : {price:.6f}
-
-    RSI : {rsi:.2f}
-
-    Confidence : {confidence}%
-    """
-            )
-
-            st.session_state.last_alert[
-                symbol
-            ] = signal
+ 
 
     # =====================================================
     # METRICS
